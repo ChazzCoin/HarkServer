@@ -1,0 +1,1 @@
+from harkFAIR.Parser import HookupParser
