@@ -32,7 +32,7 @@ def download_article():
 
 
 if __name__ == '__main__':
-    port = 3671
+    port = 1763
     debug = True
     host = "0.0.0.0"
     print(f"Starting API-Local. Host={host}, Port={port}, Debug={debug}")

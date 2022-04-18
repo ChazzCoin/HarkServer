@@ -1,8 +1,8 @@
 import discord
 from harkFAIR.Core import DICT
 from harkConfig import config
-from harkServer.CLI import Commands
-from harkServer.Discord.TiffanySays import Say
+from CLI import Commands
+from DiscordSays import Say
 from harkFAIR import Regex
 from harkFAIR.Logger import Log
 
