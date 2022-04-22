@@ -2,7 +2,7 @@
 """ Welcome to Fongo! The pyFongo connection handler. """
 
 # TODO: MASTER IMPORT FOR DATABASE MODULE
-from MDB import DEFAULT_HOST_INSTANCE
+from M.MDB import DEFAULT_HOST_INSTANCE
 from Jarticle.jURL import jURL
 from Jarticle.jArticles import jArticles
 

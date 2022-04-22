@@ -21,7 +21,7 @@ of all the NYSE, NASDAQ and NYSEAMERICAN public traded companies.
 '''
 
 # Match Allowed Tickers
-from Utils import utils_stocks
+# from Utils import utils_stocks
 
 # -> BLACKLIST <-
 blacklist = {'I', 'NBA', 'ELON', 'WSB', 'THE', 'A', 'ROPE', 'YOLO', 'TOS', 'CEO', 'DD', 'IT', 'OPEN', 'ATH', 'PM', 'IRS',
