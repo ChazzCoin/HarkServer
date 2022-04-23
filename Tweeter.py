@@ -1,10 +1,9 @@
 import tweepy
 from tweepy import OAuthHandler
-from harkConfig import config
 from harkFAIR.Core import DICT, FILE, DATE
 import random
 
-from rsLogger import Log
+from FLog.LOGGER import Log
 Log = Log("Server.Twitter.Tweeter")
 
 # -> @GlewMeTv Setup
@@ -22,8 +21,10 @@ glewme_access_token_secret = "AMt0U9bLmMUUhMVO4JZFFYyU6Vud7bGANXLeJfQ43Obix"
 # chazzcoin_access_token = "1296143087815860224-d6Bl838Yge6svvWEs7meBf4lNYpXAJ"
 # chazzcoin_access_token_secret = "hIaye2CblbugGnXvXoc7Dz54t6HhKMZ6Q6nrM4583HJ9t"
 
+import os
+current = os.getcwd()
 
-data_path = config.MASTER_PATH + "/Data"
+data_path = f"{current}/harkDataProvider"
 glewme_hashtags = "#MetaverseDaily #TiffanyReport #news"
 
 def getAuth():
@@ -57,10 +58,10 @@ def sendHookupTweet(hookup):
 def sendCachedHookup():
     Log.i("Sending Cached Hookup.")
     cache = loadTweetsInCache()
-    keys = list(cache.main_category_keys())
+    keys = list(cache.keys())
     count = len(keys)
     ran = random.randint(0, count)
-    key = list(cache.main_category_keys())[ran]
+    key = list(cache.keys())[ran]
     tweet = cache[key]
     sendHookupTweet(tweet)
     removeTweetFromCache(key, cache)
@@ -103,7 +104,7 @@ def addHookupToCache(hookup):
 
 def hasBeenSent(newTitle):
     old_tweets = FILE.load_dict_from_file("hookup_tweets_sent", data_path)
-    for oldKey in old_tweets.main_category_keys():
+    for oldKey in old_tweets.keys():
         oldItem = old_tweets[oldKey]
         oldTitle = DICT.get("title", oldItem)
         if oldTitle == newTitle:

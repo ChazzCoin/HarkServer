@@ -1,13 +1,14 @@
 import json
 # from Models.Hookup import Hookup
-from harkFAIR.Core import DICT, DATE
+from FSON import DICT
+from FDate import DATE
 from harkFAIR import fig
-from harkFAIR.Logger.CoreLogger import Log
+from FLog.LOGGER import Log
 import pandas as pd
 
 Log = Log("FAIR.Base.FILE")
 
-data_path = fig.MASTER_PATH + "/Data"
+data_path = fig.MASTER_PATH + "/harkDataProvider"
 export_path = data_path + "/Export"
 glewmetv_path = data_path + "/GlewMeTv"
 log_path = fig.MASTER_PATH + "/Utils/Logs"
