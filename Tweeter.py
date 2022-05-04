@@ -1,6 +1,8 @@
 import tweepy
 from tweepy import OAuthHandler
-from harkFAIR.Core import DICT, FILE, DATE
+from FSON import DICT
+from FDate import DATE
+from harkDataProvider import Provider
 import random
 
 from FLog.LOGGER import Log
@@ -24,7 +26,7 @@ glewme_access_token_secret = "AMt0U9bLmMUUhMVO4JZFFYyU6Vud7bGANXLeJfQ43Obix"
 import os
 current = os.getcwd()
 
-data_path = f"{current}/harkDataProvider"
+data_path = Provider.data_path
 glewme_hashtags = "#MetaverseDaily #TiffanyReport #news"
 
 def getAuth():
@@ -46,38 +48,45 @@ def sendTweet(message):
     api = getAuth()
     api.update_status(message)
 
-def sendHookupTweet(hookup):
+def postArticleToTwitter(hookup):
     title = DICT.get("title", hookup)
     if hasBeenSent(title):
-        return
-    category = DICT.get("category", hookup)
-    url = DICT.get("url", hookup)
+        return False
+    category = DICT.get("category", hookup, False)
+    url = DICT.get("url", hookup, False)
+    if not category or not url:
+        return False
     message = f"{glewme_hashtags} #{category}\n-> {title}\n\n{url}"
     sendTweet(message)
+    return True
 
-def sendCachedHookup():
-    Log.i("Sending Cached Hookup.")
+def sendCachedArticle(depth: int):
+    if depth >= 5:
+        return False
+    Log.i(f"Sending Cached Article. Depth=[ {depth} ]")
     cache = loadTweetsInCache()
     keys = list(cache.keys())
     count = len(keys)
     ran = random.randint(0, count)
     key = list(cache.keys())[ran]
     tweet = cache[key]
-    sendHookupTweet(tweet)
-    removeTweetFromCache(key, cache)
-    addTweetToSentCache(tweet)
-    print(tweet)
+    if postArticleToTwitter(tweet):
+        removeTweetFromCache(key, cache)
+        addTweetToSentCache(tweet)
+        print(tweet)
+        return True
+    return sendCachedArticle(depth+1)
 
 def removeTweetFromCache(key, cache):
-    newCache = DICT.removeKeyValue(key, cache)
-    FILE.save_dict_to_file("hookup_tweets", newCache, data_path)
+    newCache = DICT.remove_key_value(key, cache)
+    Provider.save_dict_to_file("hookup_tweets", newCache, data_path)
 
 def addTweetToSentCache(sentTweet):
     Log.i("Adding tweet to sent list file.")
-    date = str(DATE.get_log_date_time())
+    date = str(DATE.get_log_date_time_dt())
     oldTweets = loadSentTweetsInCache()
     oldTweets[date] = sentTweet
-    FILE.save_dict_to_file("hookup_tweets_sent", oldTweets, data_path)
+    Provider.save_dict_to_file("hookup_tweets_sent", oldTweets, data_path)
 
 def addHookupsToCache(hookups):
     if len(hookups) > 50:
@@ -94,16 +103,16 @@ def addHookupsToCache(hookups):
 def addHookupToCache(hookup):
     """ """
     newTweet = convertHookupToTweet(hookup)
-    newDate = str(DATE.get_log_date_time())
-    tweets = FILE.load_dict_from_file("hookup_tweets", data_path)
+    newDate = str(DATE.get_log_date_time_dt())
+    tweets = Provider.load_dict_from_file("hookup_tweets", data_path)
     newTitle = DICT.get("title", newTweet)
     if hasBeenSent(newTitle):
         return
     tweets[newDate] = newTweet
-    FILE.save_dict_to_file("hookup_tweets", tweets, data_path)
+    Provider.save_dict_to_file("hookup_tweets", tweets, data_path)
 
 def hasBeenSent(newTitle):
-    old_tweets = FILE.load_dict_from_file("hookup_tweets_sent", data_path)
+    old_tweets = Provider.load_dict_from_file("hookup_tweets_sent", data_path)
     for oldKey in old_tweets.keys():
         oldItem = old_tweets[oldKey]
         oldTitle = DICT.get("title", oldItem)
@@ -123,13 +132,13 @@ def convertHookupToTweet(hookup):
 def loadTweetsInCache():
     """ """
     Log.i("Loading Cached Tweets.")
-    return FILE.load_dict_from_file("hookup_tweets", data_path)
+    return Provider.load_dict_from_file("hookup_tweets", data_path)
 
 def loadSentTweetsInCache():
     """ """
     Log.i("Loading Cached Sent Tweets.")
-    return FILE.load_dict_from_file("hookup_tweets_sent", data_path)
+    return Provider.load_dict_from_file("hookup_tweets_sent", data_path)
 
 
 if __name__ == '__main__':
-    sendCachedHookup()
+    sendCachedArticle(0)

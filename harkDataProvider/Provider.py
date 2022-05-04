@@ -1,17 +1,13 @@
 import json
-# from Models.Hookup import Hookup
-from FSON import DICT
-from FDate import DATE
-from harkFAIR import fig
 from FLog.LOGGER import Log
 import pandas as pd
+import os
 
-Log = Log("FAIR.Base.FILE")
-
-data_path = fig.MASTER_PATH + "/harkDataProvider"
+Log = Log("HarkServer.Provider")
+data_path = os.path.dirname(__file__)
 export_path = data_path + "/Export"
 glewmetv_path = data_path + "/GlewMeTv"
-log_path = fig.MASTER_PATH + "/Utils/Logs"
+log_path = data_path + "/Utils/Logs"
 
 def save_csv_file(file_name, json_input):
     df = pd.DataFrame.from_dict(json_input['data'][0]['symbol'])

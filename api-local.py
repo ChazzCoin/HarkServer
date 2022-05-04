@@ -1,18 +1,17 @@
 import os
-
 from flask import Flask, request
 import json
 import harkDB
-from Downloader import FusedDownloader
+from FusedDL import FusedDownloader
+from harkDataProvider import Provider
 
 app = Flask(__name__)
 
-from harkFAIR.Core import FILE
 cwd = os.getcwd() + "/harkDataProvider"
-meta_ticker_info = FILE.load_dict_from_file("meta_info", cwd)
-meta_price_info = FILE.load_dict_from_file("top_meta_price_info", cwd+"/GlewMeTv")
-meta_events = FILE.load_dict_from_file("events", cwd+"/GlewMeTv")[:10]
-glewmetv_data = FILE.load_dict_from_file("glewmetv", cwd+"/GlewMeTv")
+meta_ticker_info = Provider.load_dict_from_file("meta_info", cwd)
+meta_price_info = Provider.load_dict_from_file("top_meta_price_info", cwd + "/GlewMeTv")
+meta_events = Provider.load_dict_from_file("events", cwd + "/GlewMeTv")[:10]
+glewmetv_data = Provider.load_dict_from_file("glewmetv", cwd + "/GlewMeTv")
 
 @app.route('/articles', methods=['GET'])
 def articles():
@@ -20,6 +19,14 @@ def articles():
     arts = harkDB.getArticlesLastDayWithArticles()
     print(f"/articles: Returning articles.")
     return json.dumps(arts, default=str)
+
+@app.route('/articles/count', methods=['GET'])
+def article_count():
+    print(f"/articles called. REQUEST={request}")
+    arts_count = harkDB.collectionArticles.get_document_count()
+    results = { "count": str(arts_count) }
+    print(f"/articles: Returning articles.")
+    return json.dumps(results, default=str)
 
 @app.route('/articles/search/<searchTerm>', methods=['GET'])
 def search_articles(searchTerm):

@@ -1,38 +1,62 @@
 from discord_webhook import DiscordWebhook
-from rsLogger import Log
+from FLog.LOGGER import Log
 import time
 
 Log = Log("Clients.Social.Discord.TiffanySays")
 n = "\n"
-
-
-class Say:
-    channels = {
+channels = {
+        "process_alerts": "https://discord.com/api/webhooks/968249751403384843/0Fqt4BUGtGBdAqgnCHD5RmVQzrXyV-fGy-6N3gdHUyS-kptuikFzGqDVDm63508D1Ng8",
         "tiffany_says": 'https://discord.com/api/webhooks/932535997172953149/CBjFq5R1g6hWqviA6-33XaK28QwUfIfUGIF5uTKZaJzMSu423BOisYSlyLLVH-YdyVGZ',
         "news_metaverse": 'https://discord.com/api/webhooks/933106712523702343/ZfR60S1X9ZeytpEmaOB78PpB1tJoj6ZErl1mL190fcMT6PXsU7T8lNR831hxUZhbJWEX',
         "news_crypto": "https://discord.com/api/webhooks/933127110384566382/SfAi947-8yq8Mjmt_7lO0BSMsvkKpGl_0lb_x-AIf_eoELhCOPdDd5ankPE1PcfIqrYK"
     }
 
-    def say(self, hookups):
-        self.send("tiffany_says", hookups)
+def getChannelUrl(channalName):
+    return channels[channalName]
 
-    def news_metaverse(self, hookups):
-        self.send("news_metaverse", hookups)
+def send_process_alert(alert):
+    execute_send_message(getChannelUrl("process_alerts"), alert)
 
-    def news_crypto(self, hookups):
-        self.send("news_crypto", hookups)
+def execute_send_message(channel, message):
+    webhook = DiscordWebhook(url=channel, content=message)
+    response = webhook.execute()
+    print(f"tiffany-says: [ {channel} ] -> [ {message} ] response= [ {response} ]")
 
-    def send(self, channel, hookups):
-        if type(hookups) in [list]:
-            temp = Say.prepare_list_of_hookups(hookups)
+send_process_alert("Testing first alert!")
+
+
+class Say:
+    channels = {
+        "process_alerts": "https://discord.com/api/webhooks/968249751403384843/0Fqt4BUGtGBdAqgnCHD5RmVQzrXyV-fGy-6N3gdHUyS-kptuikFzGqDVDm63508D1Ng8",
+        "tiffany_says": 'https://discord.com/api/webhooks/932535997172953149/CBjFq5R1g6hWqviA6-33XaK28QwUfIfUGIF5uTKZaJzMSu423BOisYSlyLLVH-YdyVGZ',
+        "news_metaverse": 'https://discord.com/api/webhooks/933106712523702343/ZfR60S1X9ZeytpEmaOB78PpB1tJoj6ZErl1mL190fcMT6PXsU7T8lNR831hxUZhbJWEX',
+        "news_crypto": "https://discord.com/api/webhooks/933127110384566382/SfAi947-8yq8Mjmt_7lO0BSMsvkKpGl_0lb_x-AIf_eoELhCOPdDd5ankPE1PcfIqrYK"
+    }
+
+    def say(self, articles):
+        self.send_article("tiffany_says", articles)
+
+    def news_metaverse(self, articles):
+        self.send_article("news_metaverse", articles)
+
+    def news_crypto(self, articles):
+        self.send_article("news_crypto", articles)
+
+    def process_alert(self, alert):
+        self.send_article("process_alerts", alert)
+
+    def send_article(self, channel, articles):
+        if type(articles) in [list]:
+            temp = Say.prepare_list_of_hookups(articles)
             for message in temp:
-                self.execute(self.channels[str(channel)], message)
+                self.execute_message(self.channels[str(channel)], message)
                 time.sleep(5)
         else:
-            message = self.prepare_hookup(hookups)
-            self.execute(self.channels[str(channel)], message)
+            message = self.prepare_article(articles)
+            self.execute_message(self.channels[str(channel)], message)
 
-    def execute(self, channel, message):
+    @staticmethod
+    def execute_message(channel, message):
         webhook = DiscordWebhook(url=channel, content=message)
         response = webhook.execute()
         Log.i(f"tiffany-says: [ {channel} ] -> [ {message} ]", d=response)
@@ -41,12 +65,12 @@ class Say:
     def prepare_list_of_hookups(list_of_hookups):
         temp = []
         for item in list_of_hookups:
-            newItem = Say.prepare_hookup(item)
+            newItem = Say.prepare_article(item)
             temp.append(newItem)
         return temp
 
     @staticmethod
-    def prepare_hookup(hookup):
+    def prepare_article(hookup):
         rank = str(hookup.get("rank"))
         score = str(hookup.get("score"))
         category = str(hookup.get("category"))

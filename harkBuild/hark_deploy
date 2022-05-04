@@ -3,4 +3,4 @@
 # -> run main.py with venv
 #
 cd ../../.
-sudo scp -r HarkServer/ hark@192.168.1.166:/home/hark/bin/TiffanySystem
+sudo rsync -r HarkServer/ hark@192.168.1.166:/home/hark/bin/TiffanySystem/HarkServer
