@@ -25,6 +25,28 @@ class PDF_ARTICLE(FPDF):
         super().__init__()
 
     @classmethod
+    def RUN_SUMMARY(cls, articles, fileName):
+        newCls = cls()
+        _sorted = sort_articles_by_score(articles)
+        newCls.articles = _sorted
+        newCls.name = f"{fileName}.pdf"
+        newCls.file = EXPORTED_PDF_FILE(newCls.name)
+        newCls.firstPage = {}
+        newCls.createPdf_with_summary()
+        newCls.outputPdf()
+
+    @classmethod
+    def RUN_BODY(cls, articles, fileName):
+        newCls = cls()
+        _sorted = sort_articles_by_score(articles)
+        newCls.articles = _sorted
+        newCls.name = f"{fileName}.pdf"
+        newCls.file = EXPORTED_PDF_FILE(newCls.name)
+        newCls.firstPage = {}
+        newCls.createPdf_with_body()
+        newCls.outputPdf()
+
+    @classmethod
     def RUN_CATEGORY(cls, category):
         arts = jap.get_category(category)
         _sorted = sort_articles_by_score(arts)
@@ -53,6 +75,22 @@ class PDF_ARTICLE(FPDF):
         arts1 = jap.get_category(category1)
         arts2 = jap.get_category(category2)
         all_arts = arts1 + arts2
+        _sorted = sort_articles_by_score(all_arts)
+        newCls = cls()
+        newCls.articles = _sorted
+        todays_date = DATE.mongo_date_today_str().replace(" ", "-")
+        newCls.name = f"{category1}-{category2}-Summary-{todays_date}.pdf"
+        newCls.file = EXPORTED_PDF_FILE(newCls.name)
+        newCls.firstPage = {}
+        newCls.createPdf_with_summary()
+        newCls.outputPdf()
+
+    @classmethod
+    def RUN_TRIPLE_CATEGORY_SUMMARY(cls, category1, category2, category3):
+        arts1 = jap.get_category(category1)
+        arts2 = jap.get_category(category2)
+        arts3 = jap.get_category(category3)
+        all_arts = arts1 + arts2 + arts3
         _sorted = sort_articles_by_score(all_arts)
         newCls = cls()
         newCls.articles = _sorted
@@ -294,4 +332,4 @@ def sort_articles_by_score(articles, reversed=True):
     return sorted_articles
 
 if __name__ == '__main__':
-    PDF_ARTICLE.RUN_DOUBLE_CATEGORY_SUMMARY("metaverse", "crypto")
+    PDF_ARTICLE.RUN_TRIPLE_CATEGORY_SUMMARY("metaverse", "crypto", "programming")
