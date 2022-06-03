@@ -263,7 +263,7 @@ class PDF_ARTICLE(FPDF):
         self.output(self.name)
 
     def write_paragraphs(self, text, align=LEFT):
-        paragraphs = breakup_text(text)
+        paragraphs = extract_paragraphs(text)
         for paragraph in paragraphs:
             if paragraph == "" or paragraph == " ":
                 self.cell(0, height, ln=1, align=align)
@@ -303,7 +303,7 @@ def build_single_line(body: str, i: int, forceLimit=0) -> (str, int):
     return build_single_line(body, i)
 
 
-def breakup_text(body: str) -> [str]:
+def extract_paragraphs(body: str) -> [str]:
     """ -> Separates text based on "\n" <- """
     paragraph_list = []
     i = 0
@@ -318,18 +318,11 @@ def breakup_text(body: str) -> [str]:
         i += 1
     return paragraph_list
 
-# def export_categories(firstPage, dict_of_categories):
-#     Log.i(f"Exporting Out Results to PDF")
-#     for key in dict_of_categories:
-#         hookups = dict_of_categories[key]
-#         if len(hookups) > 50:
-#             hookups = hookups[:50]
-#         export_report(key, firstPage, hookups)
-
 def sort_articles_by_score(articles, reversed=True):
     Log.v(f"sort_hookups_by_score: IN: {articles}")
     sorted_articles = sorted(articles, key=lambda k: k.get("score"), reverse=reversed)
     return sorted_articles
 
 if __name__ == '__main__':
-    PDF_ARTICLE.RUN_TRIPLE_CATEGORY_SUMMARY("metaverse", "crypto", "programming")
+    PDF_ARTICLE.RUN_DOUBLE_CATEGORY_SUMMARY("stocks", "crypto")
+    # PDF_ARTICLE.RUN_TRIPLE_CATEGORY_SUMMARY("metaverse", "crypto", "programming")
