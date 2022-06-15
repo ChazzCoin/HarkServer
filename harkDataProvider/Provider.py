@@ -9,6 +9,8 @@ export_path = data_path + "/Export"
 glewmetv_path = data_path + "/GlewMeTv"
 log_path = data_path + "/Utils/Logs"
 
+
+
 def save_csv_file(file_name, json_input):
     df = pd.DataFrame.from_dict(json_input['data'][0]['symbol'])
     df.columns = ['var1']
@@ -49,12 +51,16 @@ def save_dict_to_file(file_name, dic, file_path=export_path):
 
 def load_dict_from_file(file_name, file_path=data_path):
     try:
-        file = open(f"{file_path}/{file_name}.json")
+        p = f"{file_path}/{file_name}.json"
+        file = open(p)
         data = json.load(file)
         return data
     except Exception as e:
         Log.e("No File Found.", error=e)
         return None
+
+
+SENT_ARTICLES = load_dict_from_file("hookup_tweets_sent")
 
 if __name__ == '__main__':
     d = load_dict_from_file("events", file_path=glewmetv_path)

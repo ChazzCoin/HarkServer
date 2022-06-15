@@ -2,13 +2,19 @@ from fpdf import FPDF
 from FSON import DICT
 from FDate import DATE
 import os
+
+from fairNLP import Regex
 from harkDataProvider import Provider as pro
 from Jarticle import jArticleProvider as jap
 from FLog.LOGGER import Log
 Log = Log("Utils.PDF")
 
+half_height = 3
 height = 6
-sentence_length = 90
+sentence_length = 110
+force_length = 110
+
+font_size = 10
 
 CENTER = "C"
 LEFT = "L"
@@ -19,6 +25,7 @@ class PDF_ARTICLE(FPDF):
     file = ""
     name = ""
     articles = []
+    total_count = 0
     firstPage: dict = None
 
     def __init__(self):
@@ -32,7 +39,7 @@ class PDF_ARTICLE(FPDF):
         newCls.name = f"{fileName}.pdf"
         newCls.file = EXPORTED_PDF_FILE(newCls.name)
         newCls.firstPage = {}
-        newCls.createPdf_with_summary()
+        newCls.create_pdf_of_articles()
         newCls.outputPdf()
 
     @classmethod
@@ -43,7 +50,7 @@ class PDF_ARTICLE(FPDF):
         newCls.name = f"{fileName}.pdf"
         newCls.file = EXPORTED_PDF_FILE(newCls.name)
         newCls.firstPage = {}
-        newCls.createPdf_with_body()
+        newCls.create_pdf_of_articles()
         newCls.outputPdf()
 
     @classmethod
@@ -55,7 +62,19 @@ class PDF_ARTICLE(FPDF):
         newCls.name = f"{category}.pdf"
         newCls.file = EXPORTED_PDF_FILE(newCls.name)
         newCls.firstPage = {}
-        newCls.createPdf_with_body()
+        newCls.create_pdf_of_articles()
+        newCls.outputPdf()
+
+    @classmethod
+    def RUN_SEARCH_SUMMARY(cls, searchTerm):
+        arts = jap.get_search(searchTerm)
+        _sorted = sort_articles_by_score(arts)
+        newCls = cls()
+        newCls.articles = _sorted[:19]
+        newCls.name = f"{searchTerm}.pdf"
+        newCls.file = EXPORTED_PDF_FILE(newCls.name)
+        newCls.firstPage = {}
+        newCls.create_pdf_of_articles()
         newCls.outputPdf()
 
     @classmethod
@@ -67,44 +86,55 @@ class PDF_ARTICLE(FPDF):
         newCls.name = f"{category}.pdf"
         newCls.file = EXPORTED_PDF_FILE(newCls.name)
         newCls.firstPage = {}
-        newCls.createPdf_with_summary()
+        newCls.create_pdf_of_articles()
         newCls.outputPdf()
 
     @classmethod
     def RUN_DOUBLE_CATEGORY_SUMMARY(cls, category1, category2):
-        arts1 = jap.get_category(category1)
-        arts2 = jap.get_category(category2)
-        all_arts = arts1 + arts2
-        _sorted = sort_articles_by_score(all_arts)
+        _sorted = jap.get_categories(category1, category2)
         newCls = cls()
         newCls.articles = _sorted
         todays_date = DATE.mongo_date_today_str().replace(" ", "-")
         newCls.name = f"{category1}-{category2}-Summary-{todays_date}.pdf"
         newCls.file = EXPORTED_PDF_FILE(newCls.name)
         newCls.firstPage = {}
-        newCls.createPdf_with_summary()
+        newCls.create_pdf_of_articles()
         newCls.outputPdf()
 
     @classmethod
     def RUN_TRIPLE_CATEGORY_SUMMARY(cls, category1, category2, category3):
-        arts1 = jap.get_category(category1)
-        arts2 = jap.get_category(category2)
-        arts3 = jap.get_category(category3)
-        all_arts = arts1 + arts2 + arts3
-        _sorted = sort_articles_by_score(all_arts)
+        _sorted = jap.get_categories(category1, category2, category3)
         newCls = cls()
         newCls.articles = _sorted
-        todays_date = DATE.mongo_date_today_str().replace(" ", "-")
-        newCls.name = f"{category1}-{category2}-Summary-{todays_date}.pdf"
-        newCls.file = EXPORTED_PDF_FILE(newCls.name)
+        newCls.setup_name_and_file(f"{category1}-{category2}-{category3}-Summary")
         newCls.firstPage = {}
-        newCls.createPdf_with_summary()
+        newCls.create_pdf_of_articles()
         newCls.outputPdf()
+
+    def setup_name_and_file(self, name):
+        todays_date = DATE.mongo_date_today_str().replace(" ", "-")
+        self.name = f"{name}-{todays_date}.pdf"
+        self.file = EXPORTED_PDF_FILE(self.name)
+
+    def add_articles(self, articles):
+        for art in articles:
+            self.articles.append(art)
+
+    def create_pdf_of_articles(self, summaryOnly=True):
+        for art in self.articles:
+            self.total_count += 1
+            source = DICT.get("source", art)
+            if Regex.contains("reddit", source):
+                # create reddit pdf
+                self.write_reddit_post_to_page(art)
+            else:
+                # create article pdf
+                self.write_article_to_page(art, summaryOnly=summaryOnly)
 
     def createFirstPage(self):
         self.add_page()
         self.safe_write("Overall Statistics", align=CENTER)
-        self.set_font("Arial", size=12)
+        self.set_font("Arial", size=font_size)
         for key in self.firstPage.keys():
             i = 1
             if key == "Titles":
@@ -117,118 +147,102 @@ class PDF_ARTICLE(FPDF):
                 self.spacer()
                 self.write_sentences(f"{key}: {self.firstPage[key]}", align=LEFT)
 
-    # def createPdf_test(self):
-    #     self.articles = pro.load_dict_from_file("test_hookups", "/Users/chazzromeo/chazzcoin/TiffanyBot/Data")
-    #     self.createPdf()
-    #     self.outputPdf()
-
     def upload_to_google_drive(self):
         from harkUploader import GoogleDriveUploader
         GoogleDriveUploader.upload_pdf(self.file)
 
-    def createPdf_with_body(self):
+    def write_article_to_page(self, article, summaryOnly=True):
         # -> Loop each hookup, add it to the pdf.
-        count = 0
-        for hookup_json in self.articles:
-            source = DICT.get("source", hookup_json)
-            score = DICT.get("score", hookup_json)
-            if str(source).__contains__("investopedia"):
-                continue
-            elif int(score) < 500:
-                continue
-            count += 1
-            self.add_page()
-            self.set_font("Arial", size=12)
-            # -> Loop Each Hookup Here ->
-            title = DICT.get('title', hookup_json)
-            body = DICT.get('body', hookup_json)
-            category = DICT.get('category', hookup_json)
-            score = DICT.get('score', hookup_json)
-            sentiment = DICT.get('sentiment', hookup_json)
-            author = str(DICT.get('author', hookup_json))
-            tags = str(DICT.get('tags', hookup_json))
-            source = DICT.get('source', hookup_json)
-            source_rank = DICT.get('source_rank', hookup_json)
-            url = DICT.get('url', hookup_json)
-            published_date = DICT.get('published_date', hookup_json)
-            categories = DICT.get("category_scores", hookup_json)
-            # -> Header Work
-            self.write_sentences(title, align=CENTER)
-            self.safe_write(f"Date: {published_date}", align=CENTER)
-            self.safe_write(f"Topic: {category}", align=CENTER)
-            self.safe_write(f"#: {str(count)} | Score: {score}", align=CENTER)
-            self.spacer()
-            # -> Pre-Body
-            self.write_sentences(f"Author: {author}")
-            self.safe_write(f"Source: {source}", align=LEFT)
-            self.safe_write(f"Source Rank: {source_rank}", align=LEFT)
-            self.safe_write(f"Sentiment: {sentiment}", align=LEFT)
-            self.safe_write(f"Tags: {tags}", align=LEFT)
-            self.write_sentences(f"URL: {url}", align=LEFT, forceLimit=90)
-            self.spacer()
-            self.safe_write("--Topic Scores--", align=LEFT)
-            for key in categories.keys():
-                item = categories[key]
-                score = item[0]
-                self.safe_write(f"{key}: [ {score} ]", align=LEFT)
-            self.spacer()
-            # -> Body Work
-            self.safe_write(f"Body:", align=LEFT)
-            self.write_paragraphs(body)
-
-    def createPdf_with_summary(self):
-        # -> Loop each hookup, add it to the pdf.
-        count = 0
-        for hookup_json in self.articles:
-            source = DICT.get("source", hookup_json)
-            score = DICT.get("score", hookup_json)
-            if str(source).__contains__("investopedia"):
-                continue
-            elif int(score) < 500:
-                continue
-            count += 1
-            summary = DICT.get('summary', hookup_json, False)
-            if not summary:
-                continue
-            self.add_page()
-            self.set_font("Arial", size=12)
-            # -> Loop Each Hookup Here ->
-            title = DICT.get('title', hookup_json)
-            category = DICT.get('category', hookup_json)
-            score = DICT.get('score', hookup_json)
-            sentiment = DICT.get('sentiment', hookup_json)
-            author = str(DICT.get('author', hookup_json))
-            keywords = str(DICT.get('keywords', hookup_json))
-            source = DICT.get('source', hookup_json)
-            source_rank = DICT.get('source_rank', hookup_json)
-            url = DICT.get('url', hookup_json)
-            published_date = DICT.get('published_date', hookup_json)
-            categories = DICT.get("category_scores", hookup_json)
-            # -> Header Work
-            self.write_sentences(title, align=CENTER)
-            self.safe_write(f"Date: {published_date}", align=CENTER)
-            self.safe_write(f"Topic: {category}", align=CENTER)
-            self.safe_write(f"#: {str(count)} | Score: {score}", align=CENTER)
-            self.spacer()
-            # -> Pre-Body
-            self.write_sentences(f"Author: {author}")
-            self.safe_write(f"Source: {source}", align=LEFT)
-            self.safe_write(f"Source Rank: {source_rank}", align=LEFT)
-            self.safe_write(f"Sentiment: {sentiment}", align=LEFT)
-            self.safe_write(f"Tags: {keywords}", align=LEFT)
-            self.write_sentences(f"URL: {url}", align=LEFT, forceLimit=90)
-            self.spacer()
-            self.safe_write("--Topic Scores--", align=LEFT)
-            for key in categories.keys():
-                item = categories[key]
-                score = item[0]
-                self.safe_write(f"{key}: [ {score} ]", align=LEFT)
-            self.spacer()
-            # -> Body Work
+        source = DICT.get("source", article)
+        score = DICT.get("score", article)
+        if str(source).__contains__("investopedia"):
+            return
+        elif int(score) < 500:
+            return
+        self.add_page()
+        self.set_font("Arial", size=font_size)
+        # -> Loop Each Hookup Here ->
+        title = DICT.get('title', article)
+        body = DICT.get('body', article)
+        category = DICT.get('category', article)
+        score = DICT.get('score', article)
+        sentiment = DICT.get('sentiment', article)
+        author = str(DICT.get('author', article))
+        tags = str(DICT.get('tags', article))
+        source = DICT.get('source', article)
+        source_rank = DICT.get('source_rank', article)
+        url = DICT.get('url', article)
+        published_date = DICT.get('published_date', article)
+        categories = DICT.get("category_scores", article)
+        # -> Header Work
+        self.write_sentences(title, align=CENTER)
+        self.safe_write(f"Date: {published_date}", align=CENTER)
+        self.safe_write(f"Topic: {category}", align=CENTER)
+        self.safe_write(f"#: {str(self.total_count)} | Score: {score}", align=CENTER)
+        self.spacer()
+        # -> Pre-Body
+        self.write_sentences(f"Author: {author}")
+        self.safe_write(f"Source: {source}", align=LEFT)
+        self.safe_write(f"Source Rank: {source_rank}", align=LEFT)
+        self.safe_write(f"Sentiment: {sentiment}", align=LEFT)
+        self.safe_write(f"Tags: {tags}", align=LEFT)
+        self.write_sentences(f"URL: {url}", align=LEFT, forceLimit=force_length)
+        self.spacer()
+        self.safe_write("--Topic Scores--", align=LEFT)
+        for key in categories.keys():
+            item = categories[key]
+            score = item[0]
+            self.safe_write(f"{key}: [ {score} ]", align=LEFT)
+        self.spacer()
+        # -> Body Work
+        summary = DICT.get('summary', article, False)
+        if summaryOnly and summary:
             self.safe_write(f"Summary:", align=LEFT)
             self.spacer()
             newSum = str(summary).replace("\n", "")
             self.write_sentences(newSum)
+        else:
+            self.safe_write(f"Body:", align=LEFT)
+            self.write_paragraphs(body)
+
+    def write_reddit_post_to_page(self, reddit_post):
+        # -> Loop each hookup, add it to the pdf.
+        source = DICT.get("source", reddit_post)
+        title = DICT.get('title', reddit_post)
+        published_date = DICT.get('published_date', reddit_post)
+        if Regex.contains("Daily Discussion", title):
+            return
+        self.add_page()
+        self.set_font("Arial", size=font_size)
+        # -> Loop Each Hookup Here ->
+        title = DICT.get('title', reddit_post)
+        body = DICT.get('body', reddit_post)
+        subreddit = DICT.get('subreddit', reddit_post)
+        comments = DICT.get('comments', reddit_post)
+        author = str(DICT.get('author', reddit_post))
+        url = DICT.get('url', reddit_post)
+        # -> Header Work
+        self.write_sentences(title, align=CENTER)
+        self.safe_write(f"Date: {published_date}", align=CENTER)
+        self.safe_write(f"Topic: {source}", align=CENTER)
+        self.safe_write(f"{subreddit}", align=CENTER)
+        self.write_sentences(f"Author: {author}")
+        self.write_sentences(f"URL: {url}", align=LEFT, forceLimit=force_length)
+        self.spacer()
+        # -> Body Work
+        self.safe_write(f"Post:", align=LEFT)
+        self.spacer_half()
+        self.write_sentences(body)
+        self.spacer()
+        self.safe_write("COMMENTS:", align=LEFT)
+        comment_count = 0
+        for comment in comments:
+            authorComment = DICT.get("author", comment)
+            bodyComment = DICT.get("body", comment)
+            self.spacer_half()
+            self.safe_write(f"-> #{comment_count} - {authorComment}", align=LEFT)
+            self.write_sentences(bodyComment)
+            comment_count += 1
 
     def safe_write(self, text, align):
         cleaned_text = str(text).encode('latin-1', 'replace').decode('latin-1')
@@ -236,6 +250,9 @@ class PDF_ARTICLE(FPDF):
 
     def spacer(self):
         self.cell(0, height, ln=1, align=CENTER)
+
+    def spacer_half(self):
+        self.cell(0, half_height, ln=1, align=CENTER)
 
     def header(self):
         # Logo
@@ -324,5 +341,5 @@ def sort_articles_by_score(articles, reversed=True):
     return sorted_articles
 
 if __name__ == '__main__':
-    PDF_ARTICLE.RUN_DOUBLE_CATEGORY_SUMMARY("stocks", "crypto")
+    PDF_ARTICLE.RUN_SEARCH_SUMMARY("decentraland")
     # PDF_ARTICLE.RUN_TRIPLE_CATEGORY_SUMMARY("metaverse", "crypto", "programming")

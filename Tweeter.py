@@ -1,9 +1,12 @@
 import tweepy
 from tweepy import OAuthHandler
 from FSON import DICT
+from FList import LIST
 from FDate import DATE
 from harkDataProvider import Provider
+from Jarticle import jArticleProvider as jap
 import random
+
 
 from FLog.LOGGER import Log
 Log = Log("Server.Twitter.Tweeter")
@@ -43,74 +46,63 @@ def getAuth():
         Log.e("Error: Authentication Failed", error=e)
         return False
 
+# -> Master Send
 def sendTweet(message):
     """-> CORE SEND FUNCTION <-"""
     api = getAuth()
     api.update_status(message)
 
-def postArticleToTwitter(hookup):
-    title = DICT.get("title", hookup)
+# -> Master Tweeter Function
+def sendMetaverseArticle(depth: int):
+    if depth >= 5:
+        return False
+    Log.i(f"Sending Cached Article. Depth=[ {depth} ]")
+    tweet = get_metaverse_article()
+    if postArticleToTwitter(tweet):
+        addTweetToSentCache(tweet)
+        print(tweet)
+        return True
+    return sendMetaverseArticle(depth+1)
+
+# -> Attempt to Post Tweet
+def postArticleToTwitter(article):
+    if not article:
+        return False
+    title = DICT.get("title", article)
     if hasBeenSent(title):
         return False
-    category = DICT.get("category", hookup, False)
-    url = DICT.get("url", hookup, False)
+    category = DICT.get("category", article, False)
+    url = DICT.get("url", article, False)
     if not category or not url:
         return False
     message = f"{glewme_hashtags} #{category}\n-> {title}\n\n{url}"
     sendTweet(message)
     return True
 
-def sendCachedArticle(depth: int):
-    if depth >= 5:
-        return False
-    Log.i(f"Sending Cached Article. Depth=[ {depth} ]")
-    cache = loadTweetsInCache()
-    keys = list(cache.keys())
-    count = len(keys)
-    ran = random.randint(0, count)
-    key = list(cache.keys())[ran]
-    tweet = cache[key]
-    if postArticleToTwitter(tweet):
-        removeTweetFromCache(key, cache)
-        addTweetToSentCache(tweet)
-        print(tweet)
-        return True
-    return sendCachedArticle(depth+1)
+# -> Get Random Metaverse Article
+def get_metaverse_article():
+    arts = jap.get_categories("metaverse")
+    full_count = len(arts)
+    random_index = random.randint(0, full_count)
+    potential_art = LIST.get(random_index, arts, False)
+    return potential_art
 
-def removeTweetFromCache(key, cache):
-    newCache = DICT.remove_key_value(key, cache)
-    Provider.save_dict_to_file("hookup_tweets", newCache, data_path)
-
+# -> Cache
 def addTweetToSentCache(sentTweet):
+    st = convertHookupToTweet(sentTweet)
     Log.i("Adding tweet to sent list file.")
     date = str(DATE.get_log_date_time_dt())
     oldTweets = loadSentTweetsInCache()
-    oldTweets[date] = sentTweet
+    oldTweets[date] = st
     Provider.save_dict_to_file("hookup_tweets_sent", oldTweets, data_path)
 
-def addHookupsToCache(hookups):
-    if len(hookups) > 50:
-        hookups = hookups[:50]
-    for hookup in hookups:
-        source = DICT.get("source", hookup)
-        score = DICT.get("score", hookup)
-        if str(source).__contains__("investopedia"):
-            continue
-        elif int(score) < 500:
-            continue
-        addHookupToCache(hookup)
-
-def addHookupToCache(hookup):
+# -> Cache
+def loadSentTweetsInCache():
     """ """
-    newTweet = convertHookupToTweet(hookup)
-    newDate = str(DATE.get_log_date_time_dt())
-    tweets = Provider.load_dict_from_file("hookup_tweets", data_path)
-    newTitle = DICT.get("title", newTweet)
-    if hasBeenSent(newTitle):
-        return
-    tweets[newDate] = newTweet
-    Provider.save_dict_to_file("hookup_tweets", tweets, data_path)
+    Log.i("Loading Cached Sent Tweets.")
+    return Provider.load_dict_from_file("hookup_tweets_sent", data_path)
 
+# -> Helper
 def hasBeenSent(newTitle):
     old_tweets = Provider.load_dict_from_file("hookup_tweets_sent", data_path)
     for oldKey in old_tweets.keys():
@@ -121,24 +113,14 @@ def hasBeenSent(newTitle):
             return True
     return False
 
-def convertHookupToTweet(hookup):
+# -> Helper
+def convertHookupToTweet(article):
     Log.i("Converting Hookup for Tweet.")
     return {
-        "title": DICT.get("title", hookup),
-        "category": DICT.get("category", hookup),
-        "url": DICT.get("url", hookup)
+        "title": DICT.get("title", article),
+        "category": DICT.get("category", article),
+        "url": DICT.get("url", article)
     }
 
-def loadTweetsInCache():
-    """ """
-    Log.i("Loading Cached Tweets.")
-    return Provider.load_dict_from_file("hookup_tweets", data_path)
-
-def loadSentTweetsInCache():
-    """ """
-    Log.i("Loading Cached Sent Tweets.")
-    return Provider.load_dict_from_file("hookup_tweets_sent", data_path)
-
-
 if __name__ == '__main__':
-    sendCachedArticle(0)
+    sendMetaverseArticle(0)
