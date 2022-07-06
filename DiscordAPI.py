@@ -93,4 +93,4 @@ async def send_message(message):
     await message.channel.send(message)
 
 
-client.run("OTMyNTI5MDEzMjgzNTIwNTQz.G6pT7x.6PGmCOCNXMT9bc38HUmz8vlNCzXNFIyF5xMd2A")
+client.run("OTMyNTI5MDEzMjgzNTIwNTQz.GwEDTD.jdZENaQWdWoKzeLkK2Yf2xSryxBKNDSVrt30wg")

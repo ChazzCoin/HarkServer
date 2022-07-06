@@ -1,6 +1,8 @@
 from fpdf import FPDF
 from FSON import DICT
 from FDate import DATE
+from FList import LIST
+from FArt import ART
 import os
 
 from fairNLP import Regex
@@ -11,8 +13,8 @@ Log = Log("Utils.PDF")
 
 half_height = 3
 height = 6
-sentence_length = 110
-force_length = 110
+sentence_length = 105
+force_length = 105
 
 font_size = 10
 
@@ -92,6 +94,7 @@ class PDF_ARTICLE(FPDF):
     @classmethod
     def RUN_DOUBLE_CATEGORY_SUMMARY(cls, category1, category2):
         _sorted = jap.get_categories(category1, category2)
+        by_date = ART.sort_articles_by_date(_sorted)
         newCls = cls()
         newCls.articles = _sorted
         todays_date = DATE.mongo_date_today_str().replace(" ", "-")
@@ -99,6 +102,17 @@ class PDF_ARTICLE(FPDF):
         newCls.file = EXPORTED_PDF_FILE(newCls.name)
         newCls.firstPage = {}
         newCls.create_pdf_of_articles()
+        newCls.outputPdf()
+
+    @classmethod
+    def RUN_META_REPORT(cls, articles_by_date):
+        newCls = cls()
+        newCls.articles = articles_by_date
+        todays_date = DATE.mongo_date_today_str().replace(" ", "-")
+        newCls.name = f"TheMetaverseReport-{todays_date}.pdf"
+        newCls.file = EXPORTED_PDF_FILE(newCls.name)
+        newCls.firstPage = {}
+        newCls.create_pdf_of_articles_sorted_by_date(summaryOnly=True)
         newCls.outputPdf()
 
     @classmethod
@@ -130,6 +144,18 @@ class PDF_ARTICLE(FPDF):
             else:
                 # create article pdf
                 self.write_article_to_page(art, summaryOnly=summaryOnly)
+
+    def create_pdf_of_articles_sorted_by_date(self, summaryOnly=True):
+        for date_of_arts in self.articles:
+            for art in date_of_arts:
+                self.total_count += 1
+                source = DICT.get("source", art)
+                if Regex.contains("reddit", source):
+                    # create reddit pdf
+                    self.write_reddit_post_to_page(art)
+                else:
+                    # create article pdf
+                    self.write_article_to_page(art, summaryOnly=summaryOnly)
 
     def createFirstPage(self):
         self.add_page()
@@ -168,7 +194,10 @@ class PDF_ARTICLE(FPDF):
         score = DICT.get('score', article)
         sentiment = DICT.get('sentiment', article)
         author = str(DICT.get('author', article))
-        tags = str(DICT.get('tags', article))
+        tags1 = str(DICT.get('keywords', article))
+        tags2 = str(DICT.get('tags', article))
+        tags = LIST.flatten(tags1, tags2)
+        tickers = str(DICT.get('tickers', article))
         source = DICT.get('source', article)
         source_rank = DICT.get('source_rank', article)
         url = DICT.get('url', article)
@@ -183,15 +212,23 @@ class PDF_ARTICLE(FPDF):
         # -> Pre-Body
         self.write_sentences(f"Author: {author}")
         self.safe_write(f"Source: {source}", align=LEFT)
-        self.safe_write(f"Source Rank: {source_rank}", align=LEFT)
+        if source_rank:
+            self.safe_write(f"Source Rank: {source_rank}", align=LEFT)
         self.safe_write(f"Sentiment: {sentiment}", align=LEFT)
-        self.safe_write(f"Tags: {tags}", align=LEFT)
         self.write_sentences(f"URL: {url}", align=LEFT, forceLimit=force_length)
+        self.spacer()
+        if tags:
+            self.write_sentences(f"Tags: {tags}", align=LEFT, forceLimit=force_length)
+        self.spacer()
+        if tickers:
+            self.write_sentences(f"Tickers: {tickers}", align=LEFT, forceLimit=force_length)
         self.spacer()
         self.safe_write("--Topic Scores--", align=LEFT)
         for key in categories.keys():
             item = categories[key]
             score = item[0]
+            if int(score) <= 300:
+                continue
             self.safe_write(f"{key}: [ {score} ]", align=LEFT)
         self.spacer()
         # -> Body Work
@@ -236,15 +273,18 @@ class PDF_ARTICLE(FPDF):
         self.spacer()
         self.safe_write("COMMENTS:", align=LEFT)
         comment_count = 0
-        for comment in comments:
-            authorComment = DICT.get("author", comment)
-            bodyComment = DICT.get("body", comment)
-            self.spacer_half()
-            self.safe_write(f"-> #{comment_count} - {authorComment}", align=LEFT)
-            self.write_sentences(bodyComment)
-            comment_count += 1
+        if comments:
+            for comment in comments:
+                authorComment = DICT.get("author", comment)
+                bodyComment = DICT.get("body", comment)
+                self.spacer_half()
+                self.safe_write(f"-> #{comment_count} - {authorComment}", align=LEFT)
+                self.write_sentences(bodyComment)
+                comment_count += 1
 
     def safe_write(self, text, align):
+        if not text:
+            return
         cleaned_text = str(text).encode('latin-1', 'replace').decode('latin-1')
         self.cell(0, height, txt=cleaned_text, ln=1, align=align)
 
@@ -341,5 +381,5 @@ def sort_articles_by_score(articles, reversed=True):
     return sorted_articles
 
 if __name__ == '__main__':
-    PDF_ARTICLE.RUN_SEARCH_SUMMARY("decentraland")
+    PDF_ARTICLE.RUN_DOUBLE_CATEGORY_SUMMARY("metaverse", "crypto")
     # PDF_ARTICLE.RUN_TRIPLE_CATEGORY_SUMMARY("metaverse", "crypto", "programming")
